@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#050607">
+<title>PADYCAM — Field Notes</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050607;color:#e8e8e4;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;touch-action:none}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+#fx{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 42%,rgba(0,0,0,.52) 100%);mix-blend-mode:multiply}
+#scan{position:fixed;inset:0;pointer-events:none;opacity:.12;background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.36) 3px 4px)}
+#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 1px 3px #000,0 0 7px #000}
+#rec{position:absolute;top:max(15px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));font-size:12px;letter-spacing:.12em}
+#rec i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#f33;margin-right:7px;animation:blink 1.3s steps(1) infinite}
+@keyframes blink{50%{opacity:.15}}
+#time{position:absolute;top:max(15px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));font-size:12px;text-align:right;line-height:1.6}
+#unit{position:absolute;bottom:max(15px,env(safe-area-inset-bottom));left:max(16px,env(safe-area-inset-left));font-size:10px;line-height:1.55;opacity:.82}
+#battery{position:absolute;bottom:max(17px,env(safe-area-inset-bottom));right:max(16px,env(safe-area-inset-right));font-size:10px;opacity:.8}
+#objective{position:absolute;top:52px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:.13em;text-align:center;white-space:nowrap;opacity:.9}
+#cross{position:absolute;left:50%;top:50%;width:3px;height:3px;border-radius:50%;background:#eee;box-shadow:0 0 5px #000}
+#prompt{position:absolute;left:50%;top:59%;transform:translateX(-50%);padding:8px 12px;background:rgba(0,0,0,.55);border:1px solid #ffffff55;font-size:11px;letter-spacing:.08em;display:none;white-space:nowrap}
+#toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:13px;letter-spacing:.1em;text-align:center;opacity:0;transition:opacity .2s}
+#toast.show{opacity:1}
+#controls{position:fixed;inset:0;pointer-events:none}
+#moveZone,#lookZone{position:absolute;top:20%;bottom:0;pointer-events:auto;touch-action:none}
+#moveZone{left:0;width:43%}#lookZone{right:0;width:57%}
+#stick{position:absolute;width:116px;height:116px;margin:-58px;border:1px solid #ffffff66;border-radius:50%;background:#ffffff0b;display:none;pointer-events:none}
+#knob{position:absolute;width:48px;height:48px;margin:-24px;border-radius:50%;background:#ffffff55;border:1px solid #ffffff99}
+.ctrl{position:absolute;pointer-events:auto;touch-action:none;border:1px solid #ffffff70;border-radius:50%;background:#080a0bb8;color:#eee;width:62px;height:62px;font:11px ui-monospace,monospace;letter-spacing:.08em}
+.ctrl:active,.ctrl.active{background:#ffffff40}
+#use{right:calc(28px + env(safe-area-inset-right));bottom:calc(38px + env(safe-area-inset-bottom));width:78px;height:78px}
+#light{right:calc(116px + env(safe-area-inset-right));bottom:calc(90px + env(safe-area-inset-bottom))}
+#pause{right:calc(15px + env(safe-area-inset-right));top:calc(58px + env(safe-area-inset-top));width:42px;height:42px}
+#mapbtn{left:calc(18px + env(safe-area-inset-left));bottom:calc(22px + env(safe-area-inset-bottom));width:52px;height:52px}
+.screen{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#171b1e,#030405 78%);padding:20px;overflow:auto}
+.panel{width:min(620px,94vw);max-height:94dvh;overflow:auto;padding:clamp(20px,5vw,34px);border:1px solid #ffffff2b;background:#080a0deF;box-shadow:0 18px 70px #000}
+.logo{font:900 clamp(38px,10vw,70px)/.95 system-ui,sans-serif;letter-spacing:.08em}
+.logo span{color:#ff4a3d}
+.kicker{margin-top:12px;color:#aeb5b7;font-size:11px;letter-spacing:.22em}
+p{font:14px/1.65 system-ui,sans-serif;color:#c8ccca}
+button.start{width:100%;margin-top:18px;padding:17px;background:#e9e9e3;color:#101214;border:0;font-weight:900;letter-spacing:.18em;font-size:14px}
+.note{font:11px/1.6 system-ui,sans-serif;color:#899194;margin-top:14px}
+#mapPanel{position:fixed;inset:0;z-index:4;display:none;align-items:center;justify-content:center;background:#000b;pointer-events:auto}
+#mapPanel.open{display:flex}
+#mapCanvas{width:min(80vw,500px);height:auto;image-rendering:pixelated;border:1px solid #ffffff55;background:#15191a}
+#mapClose{position:absolute;right:20px;top:20px;border:1px solid #aaa;background:#111;color:#fff;padding:10px 16px}
+@media (orientation:portrait) and (max-width:900px){#rotate{display:flex!important}}
+#rotate{display:none;z-index:8}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas><div id="fx"></div><div id="scan"></div>
+<div id="hud">
+ <div id="rec"><i></i>REC <span id="elapsed">00:00:00</span></div>
+ <div id="time">PADYCAM / FIELD UNIT 04<br><span id="clock">02:14:08</span></div>
+ <div id="objective">FIELD NOTES — 0 / 3 DOCUMENTED</div>
+ <div id="cross"></div><div id="prompt"></div><div id="toast"></div>
+ <div id="unit">CAM 04 · FIELD DOCUMENTATION<br>LOCAL STORAGE: ACTIVE</div>
+ <div id="battery">FHD 30 · BAT 87%</div>
+</div>
+<div id="controls">
+ <div id="moveZone"></div><div id="lookZone"></div>
+ <div id="stick"><div id="knob"></div></div>
+ <button class="ctrl" id="use">INSPECT</button>
+ <button class="ctrl" id="light">LIGHT</button>
+ <button class="ctrl" id="mapbtn">MAP</button>
+ <button class="ctrl" id="pause">Ⅱ</button>
+</div>
+<div id="mapPanel"><button id="mapClose">CLOSE</button><canvas id="mapCanvas" width="240" height="240"></canvas></div>
+<div class="screen" id="menu"><div class="panel">
+ <div class="logo">PADY<span>CAM</span></div><div class="kicker">FIELD RECORDING SIMULATOR · BUILD 0.2</div>
+ <p>02:14 hrs. A routine documentation visit at an old apartment block. Walk the halls, inspect three marked details, and make a complete field record. No rush. Take in the space.</p>
+ <p class="note">iPad: left thumb moves · right thumb looks · INSPECT interacts · LIGHT toggles flashlight. Keyboard: WASD + mouse, E inspect, F flashlight, M map, Esc pause.</p>
+ <button class="start" id="start">BEGIN RECORDING</button>
+ <div class="note">Best experienced in landscape. Add to Home Screen for a full-screen view.</div>
+ </div></div>
+<div class="screen" id="pauseScreen" style="display:none"><div class="panel">
+ <div class="logo" style="font-size:38px">PAUSED</div><p>Recording is paused.</p><button class="start" id="resume">RESUME</button><button class="start" id="restart" style="background:#242a2d;color:#eee">RESTART VISIT</button>
+ </div></div>
+<div class="screen" id="finish" style="display:none"><div class="panel">
+ <div class="logo" style="font-size:38px">RECORD <span>COMPLETE</span></div><p>All three field details have been documented. Visit complete.</p><button class="start" id="again">WALK AGAIN</button>
+ </div></div>
+<div class="screen" id="rotate"><div class="panel"><div class="logo" style="font-size:34px">ROTATE DEVICE</div><p>Turn your iPad sideways for the intended field-of-view.</p></div></div>
+<script>
+(()=>{
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d',{alpha:false});
+const $=id=>document.getElementById(id);
+let W=640,H=360,playing=false,paused=false,started=0,last=0,elapsed=0,light=true,showMap=false;
+let px=3.5,py=13.5,angle=-Math.PI/2,pitch=0,bob=0,walk=0,shake=0,toastTimer=0,documented=new Set();
+const FOV=Math.PI/2.85,DEPTH=22;
+const map=[
+"1111111111111111",
+"1000000000000001",
+"1011101110111001",
+"1000100000100001",
+"1110101110101111",
+"1000001000000001",
+"1011101011101101",
+"1000000000000001",
+"1011110111110101",
+"1000010000000101",
+"1111011110110101",
+"1000000000000001",
+"1011101110111101",
+"1000000000000001",
+"1111111111111111"
+];
+const objects=[
+{x:7.5,y:3.5,name:"Notice board",desc:"A faded maintenance schedule. Several dates have been crossed out.",id:"board",color:"#b18c57"},
+{x:12.5,y:7.5,name:"Electrical panel",desc:"A handwritten inspection sticker is still attached to the panel.",id:"panel",color:"#8e9a9c"},
+{x:4.5,y:11.5,name:"Abandoned desk",desc:"A visitor log and a dusty desk lamp sit beneath the window.",id:"desk",color:"#997452"},
+{x:8.5,y:6.5,name:"Potted plant",desc:"The leaves are dry, but the soil is still slightly damp.",id:"plant",color:"#536d4d"},
+{x:2.5,y:9.5,name:"Wall clock",desc:"The clock has stopped at 2:14.",id:"clock",color:"#9a9a8b"}
+];
+const wallTex=document.createElement('canvas');wallTex.width=256;wallTex.height=256;const wt=wallTex.getContext('2d');
+function makeTexture(){
+ wt.fillStyle='#77736a';wt.fillRect(0,0,256,256);
+ for(let y=0;y<256;y+=32){wt.fillStyle=y%64===0?'#827d73':'#716d65';wt.fillRect(0,y,256,32);wt.strokeStyle='#514e48';wt.lineWidth=2;wt.strokeRect(0,y,256,32)}
+ for(let i=0;i<2800;i++){let x=Math.random()*256,y=Math.random()*256,a=Math.random()*.12;wt.fillStyle=Math.random()>.5?`rgba(230,220,200,${a})`:`rgba(15,14,12,${a})`;wt.fillRect(x,y,1+Math.random()*3,1+Math.random()*2)}
+ for(let y=0;y<256;y+=64){wt.fillStyle='#5c5851';wt.fillRect(0,y+60,256,3)}
+}
+makeTexture();
+const wallPixels=wt.getImageData(0,0,256,256).data;
+const floorTex=document.createElement('canvas');floorTex.width=256;floorTex.height=256;const ft=floorTex.getContext('2d');
+ft.fillStyle='#55534d';ft.fillRect(0,0,256,256);
+for(let y=0;y<256;y+=64)for(let x=0;x<256;x+=64){ft.fillStyle=((x+y)/64)%2?'#5e5a52':'#504d47';ft.fillRect(x+1,y+1,62,62);ft.strokeStyle='#777168';ft.strokeRect(x+1,y+1,62,62)}
+for(let i=0;i<1800;i++){ft.fillStyle=`rgba(0,0,0,${Math.random()*.12})`;ft.fillRect(Math.random()*256,Math.random()*256,2,2)}
+const floorPixels=ft.getImageData(0,0,256,256).data;
+function resize(){W=640;H=360;canvas.width=W;canvas.height=H}
+addEventListener('resize',resize);resize();
+function solid(x,y){const a=Math.floor(x),b=Math.floor(y);return !map[b]||map[b][a]!=='0'}
+function move(dx,dy){let nx=px+dx,ny=py+dy;const r=.19;if(!solid(nx+r,py)&&!solid(nx-r,py))px=nx;if(!solid(px,ny+r)&&!solid(px,ny-r))py=ny}
+function toast(s){$('toast').textContent=s;$('toast').classList.add('show');toastTimer=2}
+function nearest(){let best=null,bd=1.35;for(const o of objects){let d=Math.hypot(o.x-px,o.y-py);let a=Math.atan2(o.y-py,o.x-px)-angle;a=Math.atan2(Math.sin(a),Math.cos(a));if(d<bd&&Math.abs(a)<.55){best=o;bd=d}}return best}
+function interact(){const o=nearest();if(!o){toast("NOTHING IN REACH");return}if(documented.has(o.id)){toast("ALREADY DOCUMENTED");return}documented.add(o.id);toast("FIELD DETAIL SAVED");$('objective').textContent=`FIELD NOTES — ${documented.size} / 3 DOCUMENTED`;if(documented.size>=3){setTimeout(()=>{$('finish').style.display='flex';playing=false},900)}}
+function cast(){
+ const img=ctx.createImageData(W,H),data=img.data;
+ const horizon=H*.48+pitch*H*.24+Math.sin(bob)*2;
+ const dirX=Math.cos(angle),dirY=Math.sin(angle),planeX=-dirY*Math.tan(FOV/2),planeY=dirX*Math.tan(FOV/2);
+ const zbuf=new Float32Array(W);
+ for(let x=0;x<W;x++){
+  const camX=2*x/W-1,rayX=dirX+planeX*camX,rayY=dirY+planeY*camX;
+  let mx=Math.floor(px),my=Math.floor(py),ddx=Math.abs(1/rayX),ddy=Math.abs(1/rayY),sx,sy,sdx,sdy,side=0;
+  if(rayX<0){sx=-1;sdx=(px-mx)*ddx}else{sx=1;sdx=(mx+1-px)*ddx}
+  if(rayY<0){sy=-1;sdy=(py-my)*ddy}else{sy=1;sdy=(my+1-py)*ddy}
+  let hit=false,steps=0;
+  while(!hit&&steps++<64){if(sdx<sdy){sdx+=ddx;mx+=sx;side=0}else{sdy+=ddy;my+=sy;side=1}if(solid(mx+.001,my+.001))hit=true}
+  let dist=side===0?sdx-ddx:sdy-ddy;dist=Math.max(.08,dist);zbuf[x]=dist;
+  let wallH=Math.min(H*2,H/dist*.78),top=horizon-wallH/2,bottom=horizon+wallH/2;
+  let wallX=side===0?py+dist*rayY:px+dist*rayX;wallX-=Math.floor(wallX);
+  let texX=Math.floor(wallX*256);if((side===0&&rayX>0)||(side===1&&rayY<0))texX=255-texX;
+  for(let y=0;y<H;y++){
+   let idx=(y*W+x)*4,r,g,b;
+   if(y<top){let t=(horizon-y)/H,shade=26+Math.max(0,1-t)*10;r=shade+3;g=shade+4;b=shade+5}
+   else if(y>bottom){let t=(y-horizon)/H,shade=68-t*32;let tx=(Math.floor((px+rayX*dist)*8)%256+256)%256,ty=(Math.floor((py+rayY*dist)*8)%256+256)%256,fi=(ty*256+tx)*4;let c=floorPixels;let fog=Math.min(1,dist/18);r=c[fi]*(1-fog)+18*fog;g=c[fi+1]*(1-fog)+20*fog;b=c[fi+2]*(1-fog)+22*fog}
+   else{
+    let ty=Math.max(0,Math.min(255,Math.floor((y-top)/wallH*256))),wi=(ty*256+texX)*4,c=wallPixels;
+    let shade=(side===1?.78:1)*(light?1:.66),beam=light?Math.max(.42,1-Math.abs(camX)*.52):.7,fall=Math.max(.2,1-dist/26);
+    let noise=(Math.random()-.5)*3;
+    r=c[wi]*shade*beam*fall+noise;g=c[wi+1]*shade*beam*fall+noise;b=c[wi+2]*shade*beam*fall+noise;
+   }
+   const fog=Math.min(.8,Math.max(0,(dist-9)/22));r=r*(1-fog)+8*fog;g=g*(1-fog)+10*fog;b=b*(1-fog)+12*fog;
+   data[idx]=r;data[idx+1]=g;data[idx+2]=b;data[idx+3]=255;
+  }
+ }
+ ctx.putImageData(img,0,0);
+ // Small world props, projected as textured documentary markers.
+ const sorted=objects.map(o=>({...o,d:Math.hypot(o.x-px,o.y-py),a:Math.atan2(o.y-py,o.x-px)})).sort((a,b)=>b.d-a.d);
+ for(const o of sorted){let rel=Math.atan2(Math.sin(o.a-angle),Math.cos(o.a-angle));if(Math.abs(rel)>FOV*.68||o.d<.2)continue;let sx=W*(.5+Math.tan(rel)/Math.tan(FOV/2)*.5),height=Math.min(H*.8,H/o.d*.38),sy=horizon+height*.15;let col=o.color;ctx.save();ctx.globalAlpha=Math.max(.3,1-o.d/20);ctx.fillStyle='#111';ctx.fillRect(sx-height*.22,sy-height*.52,height*.44,height*.54);ctx.fillStyle=col;ctx.fillRect(sx-height*.19,sy-height*.49,height*.38,height*.45);ctx.fillStyle='#d2c9b1';ctx.fillRect(sx-height*.14,sy-height*.38,height*.28,height*.04);ctx.restore()}
+ // Flashlight pool and glass reflections
+ if(light){let grad=ctx.createRadialGradient(W/2,horizon+H*.08,8,W/2,horizon+H*.08,W*.47);grad.addColorStop(0,'rgba(255,244,205,.10)');grad.addColorStop(.55,'rgba(255,235,190,.035)');grad.addColorStop(1,'rgba(255,230,180,0)');ctx.fillStyle=grad;ctx.fillRect(0,0,W,H)}
+ // bodycam grain, chromatic fringe and sensor vignette
+ ctx.fillStyle='rgba(4,5,7,.08)';ctx.fillRect(0,0,W,H);
+}
+function drawMap(){let c=$('mapCanvas').getContext('2d'),s=15;c.clearRect(0,0,240,240);for(let y=0;y<map.length;y++)for(let x=0;x<map[y].length;x++){c.fillStyle=map[y][x]==='1'?'#899092':'#242a2b';c.fillRect(x*s,y*s,s-1,s-1)}for(const o of objects){c.fillStyle=documented.has(o.id)?'#80d79a':'#d5b77a';c.fillRect(o.x*s-3,o.y*s-3,6,6)}c.fillStyle='#fff';c.beginPath();c.arc(px*s,py*s,4,0,Math.PI*2);c.fill();c.strokeStyle='#fff';c.beginPath();c.moveTo(px*s,py*s);c.lineTo((px+Math.cos(angle)*.8)*s,(py+Math.sin(angle)*.8)*s);c.stroke()}
+function frame(t){if(!playing||paused)return;let dt=Math.min(.04,(t-last)/1000||0);last=t;elapsed+=dt;if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)$('toast').classList.remove('show')}
+ const speed=Math.hypot(input.x,input.y);if(speed>.04){let a=angle;let forward=input.y,strafe=input.x;move((Math.cos(a)*forward+Math.cos(a+Math.PI/2)*strafe)*dt*2.4,(Math.sin(a)*forward+Math.sin(a+Math.PI/2)*strafe)*dt*2.4);walk+=dt*speed*8;bob=Math.sin(walk)*Math.min(.8,speed)*2}
+ cast();$('elapsed').textContent=new Date(elapsed*1000).toISOString().slice(11,19);$('clock').textContent=new Date(2*3600+14*60+8+elapsed*1e3).toISOString().slice(11,19);let o=nearest();$('prompt').style.display=o?'block':'none';if(o)$('prompt').textContent=`E / INSPECT — ${o.name}`;requestAnimationFrame(frame)}
+const input={x:0,y:0};let joy=null,look=null,keys={};
+function startGame(){ $('menu').style.display='none';$('finish').style.display='none';playing=true;paused=false;started=performance.now();last=started;elapsed=0;requestAnimationFrame(frame)}
+$('start').onclick=startGame;$('again').onclick=()=>{px=3.5;py=13.5;angle=-Math.PI/2;documented.clear();$('objective').textContent='FIELD NOTES — 0 / 3 DOCUMENTED';startGame()};
+$('use').addEventListener('pointerdown',e=>{e.preventDefault();interact()});
+$('light').addEventListener('pointerdown',e=>{e.preventDefault();light=!light;$('light').classList.toggle('active',light);toast(light?'FLASHLIGHT ON':'FLASHLIGHT OFF')});
+$('mapbtn').onclick=()=>{showMap=!showMap;$('mapPanel').classList.toggle('open',showMap);if(showMap)drawMap()};
+$('mapClose').onclick=()=>{$('mapPanel').classList.remove('open');showMap=false};
+function pause(){if(!playing)return;paused=!paused;$('pauseScreen').style.display=paused?'flex':'none';if(!paused){last=performance.now();requestAnimationFrame(frame)}}
+$('pause').onclick=pause;$('resume').onclick=pause;$('restart').onclick=()=>{px=3.5;py=13.5;angle=-Math.PI/2;documented.clear();$('objective').textContent='FIELD NOTES — 0 / 3 DOCUMENTED';$('pauseScreen').style.display='none';startGame()};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape')pause();if(e.key.toLowerCase()==='e')interact();if(e.key.toLowerCase()==='f'){light=!light}if(e.key.toLowerCase()==='m')$('mapbtn').click()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function keyboard(){let f=(keys.w?1:0)-(keys.s?1:0),s=(keys.d?1:0)-(keys.a?1:0);if(f||s||joy===null){input.x=s;input.y=f}if(keys.arrowleft)angle-=.035;if(keys.arrowright)angle+=.035}
+const moveZone=$('moveZone'),lookZone=$('lookZone'),stick=$('stick'),knob=$('knob');
+moveZone.addEventListener('pointerdown',e=>{joy=e.pointerId;moveZone.setPointerCapture(joy);stick.style.display='block';stick.style.left=e.clientX+'px';stick.style.top=e.clientY+'px';joyMove(e)});
+moveZone.addEventListener('pointermove',e=>{if(e.pointerId===joy)joyMove(e)});
+function joyMove(e){let r=moveZone.getBoundingClientRect(),cx=parseFloat(stick.style.left),cy=parseFloat(stick.style.top),dx=e.clientX-cx,dy=e.clientY-cy,l=Math.hypot(dx,dy),m=Math.min(42,l),a=Math.atan2(dy,dx);knob.style.left=(50+Math.cos(a)*m/1.16)+'%';knob.style.top=(50+Math.sin(a)*m/1.16)+'%';input.x=Math.cos(a)*m/42;input.y=-Math.sin(a)*m/42}
+function endJoy(e){if(e.pointerId===joy){joy=null;stick.style.display='none';input.x=0;input.y=0}}
+moveZone.addEventListener('pointerup',endJoy);moveZone.addEventListener('pointercancel',endJoy);
+lookZone.addEventListener('pointerdown',e=>{look={id:e.pointerId,x:e.clientX,y:e.clientY};lookZone.setPointerCapture(e.pointerId)});
+lookZone.addEventListener('pointermove',e=>{if(!look||look.id!==e.pointerId)return;let dx=e.clientX-look.x;angle+=dx*.0065;look.x=e.clientX;look.y=e.clientY});
+lookZone.addEventListener('pointerup',e=>{if(look&&look.id===e.pointerId)look=null});lookZone.addEventListener('pointercancel',()=>look=null);
+canvas.addEventListener('click',()=>{if(playing&&!paused&&document.pointerLockElement!==canvas&&matchMedia('(pointer:fine)').matches)canvas.requestPointerLock?.()});
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)angle+=e.movementX*.0025});
+let prev=0;function inputLoop(){keyboard();requestAnimationFrame(inputLoop)}inputLoop();
+})();
+</script>
+</body>
+</html>
